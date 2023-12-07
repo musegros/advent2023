@@ -14,16 +14,16 @@ schematic = """
 """
 
 around = [
-    [0,-1],
-    [0,0],
+    [-1,-1],
+    [-1,0],
+    [-1,1],
     [0,1],
     [1,1],
-    [2,1],
-    [2,0],
-    [2,-1],
-    [1,-1]
+    [1,0],
+    [1,-1],
+    [0,-1]
 ]
-# schematic = open('input.txt').read()
+schematic = open('input.txt').read()
 
 def prepareSchematic(schem):
     """surround schematic with dots so I don't need to handle edge cases"""
@@ -34,40 +34,8 @@ def prepareSchematic(schem):
         schemList[i] = '.' + schemList[i] + '.'
     return schemList
 
-def isPartNumber(numArea):
-    for item in numArea:
-        if len(re.sub('[0-9\.]', '', item)) > 0:
-            return True
-    return False
-
-def findNumber(schematic, index):
-    numberRange = []
-    lineSum = 0
-    numStr = ""
-    lineStr = schematic[index]
-    for i in range(len(lineStr)):
-        if lineStr[i].isdigit():
-            numStr += lineStr[i]
-            if numberRange == []:
-                numberRange.append(i-1)
-        elif numStr != "":
-            numberRange.append(i+1)
-            numArea = [
-                schematic[index-1][numberRange[0]:numberRange[1]],
-                schematic[index][numberRange[0]:numberRange[1]],
-                schematic[index+1][numberRange[0]:numberRange[1]]
-            ]
-            
-            if isPartNumber(numArea):
-                lineSum += int(numStr)
-            numStr = ""
-            numberRange = []
-
-    return lineSum
-
-def findGears(schemList, i):
+def findGearsInLine(schemLine):
     gearsList = []
-    schemLine = schemList[i]
     gearLoc = schemLine.find('*')
     startSlice = 0
     while gearLoc != -1:
@@ -77,48 +45,87 @@ def findGears(schemList, i):
 
     return gearsList
 
-def getGearRatio(gear, line):
-    aroundList = []
-    print(line, gear)
+def getPartNumber(line, partIndex):
+    print(line, "index",partIndex,'value', line[partIndex])
+    indexOffset = 1
+    nextChar = line[partIndex]
+    numStr = ""
+    #search left
+    while nextChar.isdigit():
+        numStr = nextChar + numStr
+        nextChar = line[partIndex - indexOffset]
+        indexOffset += 1
+    indexOffset = 2
+
+    nextChar = line[partIndex + 1]
+    #search right
+    while nextChar.isdigit():
+        numStr = numStr + nextChar
+        nextChar = line[partIndex + indexOffset]
+        indexOffset += 1
+
+    return int(numStr)
+
+
+def findPartsAroundGear(schematicList, gearLocation):
+    gearLine = gearLocation[0]
+    gearIndex = gearLocation[1]
+    lastGearLine = gearLine
+    lastDigit = False
+    numberLocations = []
     for i in around:
-        # print(i)
-        # print(line[i[0]])
-        if line[i[0]][gear+i[1]].isdigit():
-            aroundList.append(i)
-            for j in line:
-                print(j)
-
-            print(i)
-
-    return 0
-
-def processLineGears(schemList, i):
-    ratioSum = 0
-    gearIndexes = findGears(schemList, i)
-    currentLine = [
-        schemList[i-1],
-        schemList[i],
-        schemList[i+1]
-    ]
-    for gear in gearIndexes:
-        ratioSum += getGearRatio(gear, currentLine)
+        aroundGearLine = i[0] + gearLine
+        aroundGearIndex = i[1] + gearIndex
+        foundDigit = schematicList[aroundGearLine][aroundGearIndex].isdigit()
+        isNewNumber = (foundDigit != lastDigit or lastGearLine != aroundGearLine)
+        if foundDigit and isNewNumber:
+            numberLocations.append([aroundGearLine, aroundGearIndex])
+        lastGearLine = aroundGearLine
+        lastDigit = foundDigit
     
-    print(schemList[i], end='')
-    print(gearIndexes)
+    if len(numberLocations) == 2:
+        return numberLocations
 
-    return ratioSum
+    return []
 
-    
+
+def findPartPairs(schematic, gears):
+    partPairs = []
+    for gear in gears:
+        partPair = findPartsAroundGear(schematic, gear)
+        if partPair:
+            partPairs.append(partPair)
+    return partPairs
+
+
+def findGears(schematic):
+    gearsList = []
+    for i in range(len(schematic)):
+        gearsInLine = findGearsInLine(schematic[i])
+        for gearIndex in gearsInLine:
+            gearsList.append([i,gearIndex])
+
+    return gearsList
+
 def main():
-    schematicList = prepareSchematic(schematic)
-    processLineGears(schematicList, 2)
     sum = 0
-    # for i in range(1,len(schematicList)-1):
-    #     # sum += findNumber(schematicList, i)
-    #     sum += processLineGears(schematicList, i)
-    #     # print(schematicList[i])
+    schematicList = prepareSchematic(schematic)
+    gears = findGears(schematicList)
+    partPairs = findPartPairs(schematicList, gears)
+
+    for pair in partPairs:
+        gearRatio = 1
+        for part in pair:
+            partLine = schematicList[part[0]]
+            partIndex = part[1]
+            gearRatio = gearRatio * getPartNumber(partLine, partIndex)
+
+        sum += gearRatio
+
     return sum
 
 print(main())
 # print([0,1] + [2,3])
 test = ".........*.602.........571-.......................*...*.............199.....$.........181.......*......980....292............................."
+
+# getPartNumber('.......755..', 7)
